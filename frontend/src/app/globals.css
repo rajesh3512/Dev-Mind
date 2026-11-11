@@ -1,0 +1,328 @@
+@import "tailwindcss";
+
+/* =========================================
+   DEVMIND AI — DESIGN SYSTEM
+========================================= */
+
+:root {
+  color-scheme: light;
+
+  --background: #f0eee8;
+  --sidebar: #e9e6de;
+  --surface: #faf9f6;
+  --surface-elevated: #ffffff;
+
+  --foreground: #202124;
+  --muted: #77766f;
+  --border: #dcd9d0;
+
+  --accent: #647fc4;
+  --accent-hover: #526eaf;
+  --accent-soft: #e5e9f3;
+  --secondary: #a49acd;
+
+  --success: #398568;
+  --error: #d65a5a;
+
+  --shadow-soft: 0 12px 40px rgba(40, 38, 32, 0.06);
+  --shadow-card: 0 4px 18px rgba(40, 38, 32, 0.04);
+}
+
+/* DARK THEME */
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #141519;
+  --sidebar: #191b20;
+  --surface: #1d2026;
+  --surface-elevated: #262a32;
+
+  --foreground: #f0f0f2;
+  --muted: #a2a5ae;
+  --border: #353943;
+
+  --accent: #98aceb;
+  --accent-hover: #b1c0f1;
+  --accent-soft: #282e40;
+  --secondary: #b6a9ea;
+
+  --success: #4ade80;
+  --error: #f87171;
+
+  --shadow-soft: 0 12px 40px rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 4px 18px rgba(0, 0, 0, 0.12);
+}
+
+/* TAILWIND MAPPING */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-sidebar: var(--sidebar);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-error: var(--error);
+
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-playfair);
+  --font-mono: var(--font-jetbrains);
+}
+
+/* GLOBAL */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+
+  transition:
+    background-color 250ms ease,
+    color 250ms ease;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* TYPOGRAPHY */
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-playfair), serif;
+}
+
+code,
+pre,
+kbd {
+  font-family: var(--font-jetbrains), monospace;
+}
+
+/* EDITORIAL HEADING */
+
+.editorial-heading {
+  font-family: var(--font-playfair), serif;
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 1.08;
+  text-transform: uppercase;
+}
+
+/* =========================================
+   DEVMIND — MOTION SYSTEM
+========================================= */
+
+/* Subtle animated grid */
+
+.ambient-grid {
+  background-image:
+    linear-gradient(
+      rgba(120, 120, 120, 0.035) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(120, 120, 120, 0.035) 1px,
+      transparent 1px
+    );
+
+  background-size: 52px 52px;
+
+  mask-image: linear-gradient(
+    to bottom,
+    black 0%,
+    transparent 85%
+  );
+}
+
+/* Brand visual */
+
+.brand-node {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.brand-connection {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1;
+  opacity: 0.3;
+}
+
+.brand-active-connection {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 9;
+  animation: connection-flow 4s linear infinite;
+}
+
+@keyframes connection-flow {
+  to {
+    stroke-dashoffset: -56;
+  }
+}
+
+/* Accent light travelling through the visual */
+
+.brand-travelling-light {
+  filter: drop-shadow(0 0 4px var(--accent));
+}
+
+/* Editorial heading reveal */
+
+.heading-mask {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.08em;
+}
+
+.heading-reveal {
+  display: block;
+}
+
+/* Composer focus indicator */
+
+.composer-accent {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.composer-group:focus-within .composer-accent {
+  transform: scaleX(1);
+}
+
+/* Action panel interactions */
+
+.action-panel {
+  transition:
+    transform 350ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 250ms ease,
+    background-color 250ms ease,
+    box-shadow 350ms ease;
+}
+
+.action-icon {
+  transition:
+    transform 350ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 250ms ease,
+    background-color 250ms ease;
+}
+
+.action-arrow {
+  transition:
+    transform 350ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 250ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .action-panel:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: var(--shadow-card);
+  }
+
+  .action-panel:hover .action-icon {
+    transform: translateY(-2px);
+    color: var(--accent);
+  }
+
+  .action-panel:hover .action-arrow {
+    transform: translate(3px, -3px);
+    color: var(--accent);
+  }
+}
+
+/* Reduced motion accessibility */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .action-panel:hover {
+    transform: none;
+  }
+}
+
+/* DevMind AI - Syntax Highlighting */
+
+.hljs {
+  color: var(--foreground);
+}
+
+.hljs-keyword,
+.hljs-selector-tag {
+  color: #a78bfa;
+}
+
+.hljs-string,
+.hljs-attr {
+  color: #22a06b;
+}
+
+.hljs-number,
+.hljs-literal {
+  color: #d97706;
+}
+
+.hljs-title,
+.hljs-function {
+  color: #5b8def;
+}
+
+.hljs-comment {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.hljs-built_in,
+.hljs-type {
+  color: #d78bce;
+}
