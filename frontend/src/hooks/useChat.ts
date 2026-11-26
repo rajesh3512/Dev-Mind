@@ -14,11 +14,8 @@ import type {
   ConversationSearchResult,
   Message,
   ProgrammingLanguage,
+  Folder,
 } from "@/types/chat";
-
-// ==========================================
-// CONVERSATION SORTING
-// ==========================================
 
 function sortConversations<T extends {
   is_pinned: boolean;
@@ -37,46 +34,29 @@ function sortConversations<T extends {
 }
 
 export function useChat() {
-  // ==========================================
-  // STATE MANAGEMENT
-  // ==========================================
-
   const [conversations, setConversations] = useState<Conversation[]>([]);
-
-  const [searchResults, setSearchResults] =
-    useState<ConversationSearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<ConversationSearchResult[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
 
   const [searchQuery, setSearchQuery] = useState("");
-
   const [searchLoading, setSearchLoading] = useState(false);
-
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const [activeConversationId, setActiveConversationId] =
     useState<number | null>(null);
 
   const [messages, setMessages] = useState<Message[]>([]);
-
   const [loading, setLoading] = useState(false);
-
   const [sending, setSending] = useState(false);
-
   const [error, setError] = useState<string | null>(null);
 
   const searchRequestId = useRef(0);
-
-  // ==========================================
-  // DISPLAYED CONVERSATIONS
-  // ==========================================
 
   const displayedConversations:
     (Conversation | ConversationSearchResult)[] =
     searchQuery.trim() ? searchResults : conversations;
 
-  // ==========================================
-  // LOAD ALL CONVERSATIONS
-  // ==========================================
-
+  // Load conversations
   const loadConversations = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -86,7 +66,6 @@ export function useChat() {
       setConversations(sortConversations(data));
     } catch (err) {
       console.error("[DevMind] Failed to load conversations:", err);
-
       setError(
         err instanceof Error
           ? err.message
@@ -97,21 +76,29 @@ export function useChat() {
     }
   }, []);
 
-  // ==========================================
-  // INITIAL LOAD
-  // ==========================================
+  // Load folders
+  const loadFolders = useCallback(async () => {
+    try {
+      const data = await conversationService.listFolders();
+      setFolders(data);
+    } catch (err) {
+      console.error("[DevMind] Failed to load folders:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load folders."
+      );
+    }
+  }, []);
 
   useEffect(() => {
     void loadConversations();
-  }, [loadConversations]);
+    void loadFolders();
+  }, [loadConversations, loadFolders]);
 
-  // ==========================================
-  // DEBOUNCED SEARCH
-  // ==========================================
-
+  // Search
   useEffect(() => {
     const query = searchQuery.trim();
-
     const requestId = ++searchRequestId.current;
 
     if (!query) {
@@ -133,14 +120,11 @@ export function useChat() {
         }
       } catch (err) {
         if (requestId === searchRequestId.current) {
-          console.error("[DevMind] Search failed:", err);
-
           setSearchError(
             err instanceof Error
               ? err.message
               : "Unable to search conversations."
           );
-
           setSearchResults([]);
         }
       } finally {
@@ -153,10 +137,7 @@ export function useChat() {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  // ==========================================
-  // CREATE NEW CONVERSATION
-  // ==========================================
-
+  // Create conversation
   const createConversation = useCallback(async () => {
     setError(null);
 
@@ -172,39 +153,30 @@ export function useChat() {
 
       return conversation;
     } catch (err) {
-      console.error("[DevMind] Conversation creation failed:", err);
-
       setError(
         err instanceof Error
           ? err.message
           : "Unable to create conversation."
       );
-
       throw err;
     }
   }, []);
 
-  // ==========================================
-  // OPEN EXISTING CONVERSATION
-  // ==========================================
-
+  // Open conversation
   const openConversation = useCallback(async (id: number) => {
     setLoading(true);
     setError(null);
     setMessages([]);
 
     try {
-      const [conversation, conversationMessages] =
-        await Promise.all([
-          conversationService.get(id),
-          conversationService.getMessages(id),
-        ]);
+      const [conversation, conversationMessages] = await Promise.all([
+        conversationService.get(id),
+        conversationService.getMessages(id),
+      ]);
 
       setActiveConversationId(conversation.id);
       setMessages(conversationMessages);
     } catch (err) {
-      console.error("[DevMind] Failed to open conversation:", err);
-
       setError(
         err instanceof Error
           ? err.message
@@ -215,15 +187,9 @@ export function useChat() {
     }
   }, []);
 
-  // ==========================================
-  // SEND MESSAGE
-  // ==========================================
-
+  // Send message
   const sendMessage = useCallback(
-    async (
-      question: string,
-      language: ProgrammingLanguage
-    ) => {
+    async (question: string, language: ProgrammingLanguage) => {
       const trimmedQuestion = question.trim();
 
       if (!trimmedQuestion || sending) return;
@@ -235,13 +201,11 @@ export function useChat() {
         let conversationId = activeConversationId;
 
         if (conversationId === null) {
-          const conversation =
-            await conversationService.create(
-              trimmedQuestion.slice(0, 50)
-            );
+          const conversation = await conversationService.create(
+            trimmedQuestion.slice(0, 50)
+          );
 
           conversationId = conversation.id;
-
           setActiveConversationId(conversationId);
 
           setConversations((previous) =>
@@ -249,26 +213,17 @@ export function useChat() {
           );
         }
 
-        const response =
-          await conversationService.sendMessage(
-            conversationId,
-            {
-              question: trimmedQuestion,
-              language,
-            }
-          );
-
-        console.log("[DevMind] Message sent:", response.status);
+        await conversationService.sendMessage(conversationId, {
+          question: trimmedQuestion,
+          language,
+        });
 
         const updatedMessages =
           await conversationService.getMessages(conversationId);
 
         setMessages(updatedMessages);
-
         await loadConversations();
       } catch (err) {
-        console.error("[DevMind] Message sending failed:", err);
-
         setError(
           err instanceof Error
             ? err.message
@@ -281,47 +236,37 @@ export function useChat() {
     [activeConversationId, sending, loadConversations]
   );
 
-  // ==========================================
-  // RENAME CONVERSATION
-  // ==========================================
-
+  // Rename conversation
   const renameConversation = useCallback(
     async (id: number, title: string) => {
       const trimmedTitle = title.trim();
-
       if (!trimmedTitle) return;
 
-      setError(null);
-
       try {
-        const updated = await conversationService.rename(
-          id,
-          trimmedTitle
-        );
+        const updated = await conversationService.rename(id, trimmedTitle);
 
         setConversations((previous) =>
           sortConversations(
-            previous.map((conversation) =>
-              conversation.id === id
-                ? { ...conversation, ...updated }
-                : conversation
+            previous.map((item) =>
+              item.id === id ? { ...item, ...updated } : item
             )
           )
         );
 
         setSearchResults((previous) =>
           sortConversations(
-            previous.map((conversation) =>
-              conversation.id === id
-                ? { ...conversation, title: updated.title,
-                    updated_at: updated.updated_at }
-                : conversation
+            previous.map((item) =>
+              item.id === id
+                ? {
+                    ...item,
+                    title: updated.title,
+                    updated_at: updated.updated_at,
+                  }
+                : item
             )
           )
         );
       } catch (err) {
-        console.error("[DevMind] Rename failed:", err);
-
         setError(
           err instanceof Error
             ? err.message
@@ -332,46 +277,34 @@ export function useChat() {
     []
   );
 
-  // ==========================================
-  // PIN / UNPIN CONVERSATION
-  // ==========================================
-
+  // Pin / unpin
   const togglePinConversation = useCallback(
     async (id: number, isPinned: boolean) => {
-      setError(null);
-
       try {
-        const updated = await conversationService.togglePin(
-          id,
-          isPinned
-        );
+        const updated = await conversationService.togglePin(id, isPinned);
 
         setConversations((previous) =>
           sortConversations(
-            previous.map((conversation) =>
-              conversation.id === id
-                ? { ...conversation, ...updated }
-                : conversation
+            previous.map((item) =>
+              item.id === id ? { ...item, ...updated } : item
             )
           )
         );
 
         setSearchResults((previous) =>
           sortConversations(
-            previous.map((conversation) =>
-              conversation.id === id
+            previous.map((item) =>
+              item.id === id
                 ? {
-                    ...conversation,
+                    ...item,
                     is_pinned: updated.is_pinned,
                     updated_at: updated.updated_at,
                   }
-                : conversation
+                : item
             )
           )
         );
       } catch (err) {
-        console.error("[DevMind] Pin update failed:", err);
-
         setError(
           err instanceof Error
             ? err.message
@@ -382,27 +315,18 @@ export function useChat() {
     []
   );
 
-  // ==========================================
-  // DELETE CONVERSATION
-  // ==========================================
-
+  // Delete conversation
   const deleteConversation = useCallback(
     async (id: number) => {
-      setError(null);
-
       try {
         await conversationService.delete(id);
 
         setConversations((previous) =>
-          previous.filter(
-            (conversation) => conversation.id !== id
-          )
+          previous.filter((item) => item.id !== id)
         );
 
         setSearchResults((previous) =>
-          previous.filter(
-            (conversation) => conversation.id !== id
-          )
+          previous.filter((item) => item.id !== id)
         );
 
         if (activeConversationId === id) {
@@ -410,8 +334,6 @@ export function useChat() {
           setMessages([]);
         }
       } catch (err) {
-        console.error("[DevMind] Failed to delete conversation:", err);
-
         setError(
           err instanceof Error
             ? err.message
@@ -423,21 +345,114 @@ export function useChat() {
   );
 
   // ==========================================
-  // RESET CHAT
+  // FOLDER OPERATIONS
   // ==========================================
 
+  const createFolder = useCallback(async (name: string) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    try {
+      const folder = await conversationService.createFolder(trimmedName);
+      setFolders((previous) => [...previous, folder]);
+      return folder;
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to create folder."
+      );
+      throw err;
+    }
+  }, []);
+
+  const renameFolder = useCallback(async (id: number, name: string) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    try {
+      const updated = await conversationService.renameFolder(id, trimmedName);
+
+      setFolders((previous) =>
+        previous.map((folder) =>
+          folder.id === id ? updated : folder
+        )
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to rename folder."
+      );
+      throw err;
+    }
+  }, []);
+
+  const moveConversation = useCallback(
+    async (conversationId: number, folderId: number | null) => {
+      try {
+        const updated = await conversationService.moveConversation(
+          conversationId,
+          folderId
+        );
+
+        setConversations((previous) =>
+          sortConversations(
+            previous.map((item) =>
+              item.id === conversationId
+                ? { ...item, ...updated }
+                : item
+            )
+          )
+        );
+
+        setSearchResults((previous) =>
+          previous.map((item) =>
+            item.id === conversationId
+              ? { ...item, folder_id: updated.folder_id }
+              : item
+          )
+        );
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Unable to move conversation."
+        );
+        throw err;
+      }
+    },
+    []
+  );
+
+  const deleteFolder = useCallback(async (id: number) => {
+    try {
+      await conversationService.deleteFolder(id);
+
+      setFolders((previous) =>
+        previous.filter((folder) => folder.id !== id)
+      );
+
+      await loadConversations();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to delete folder."
+      );
+      throw err;
+    }
+  }, [loadConversations]);
+
+  // Reset
   const resetChat = useCallback(() => {
     setActiveConversationId(null);
     setMessages([]);
     setError(null);
   }, []);
 
-  // ==========================================
-  // EXPOSE FUNCTIONS
-  // ==========================================
-
   return {
     conversations: displayedConversations,
+    allConversations: conversations,
+
+    folders,
+    createFolder,
+    renameFolder,
+    deleteFolder,
+    moveConversation,
+    loadFolders,
 
     searchQuery,
     setSearchQuery,

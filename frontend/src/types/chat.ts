@@ -4,15 +4,18 @@ export type ProgrammingLanguage =
   | "C++"
   | "JavaScript";
 
-export interface ChatRequest {
-  question: string;
-  language: ProgrammingLanguage;
+export interface Folder {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Conversation {
   id: number;
   title: string;
   is_pinned: boolean;
+  folder_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +34,11 @@ export interface Message {
   content: string;
   language: ProgrammingLanguage;
   created_at: string;
+}
+
+export interface ChatRequest {
+  question: string;
+  language: ProgrammingLanguage;
 }
 
 export interface ConversationChatResponse {

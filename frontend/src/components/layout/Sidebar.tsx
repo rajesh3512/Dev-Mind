@@ -40,7 +40,13 @@ import {
 
   Check,
 
+  Folder,
+
+  FolderPlus,
+
 } from "lucide-react";
+
+
 
 
 
@@ -49,6 +55,8 @@ import type {
   Conversation,
 
   ConversationSearchResult,
+
+  Folder as FolderType,
 
 } from "@/types/chat";
 
@@ -113,6 +121,16 @@ interface SidebarProps {
     ) => void;
 
   onDeveloperTool: (prompt: string) => void;
+
+    folders: FolderType[];
+
+  onCreateFolder: (name: string) => Promise<FolderType | undefined>;
+  onRenameFolder: (id: number, name: string) => Promise<void>;
+  onDeleteFolder: (id: number) => Promise<void>;
+  onMoveConversation: (
+    conversationId: number,
+    folderId: number | null
+  ) => Promise<void>;
 
 }
 
@@ -281,6 +299,16 @@ export default function Sidebar({
 
   onRenameConversation,
 
+  folders,
+
+  onCreateFolder,
+
+  onRenameFolder,
+
+  onDeleteFolder,
+
+  onMoveConversation,
+
   onDeveloperTool,
 
 }: SidebarProps) {
@@ -295,7 +323,14 @@ export default function Sidebar({
 
   const [editingTitle, setEditingTitle] = useState("");
 
+    const [expandedFolders, setExpandedFolders] = useState<number[]>([]);
+  const [showUnassigned, setShowUnassigned] = useState(true);
 
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+
+  const [editingFolderId, setEditingFolderId] = useState<number | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState("");
 
   const compact = collapsed && !mobile;
 
@@ -390,7 +425,52 @@ const handleRenameCancel = () => {
 };
 
 
+  const toggleFolder = (folderId: number) => {
+    setExpandedFolders((previous) =>
+      previous.includes(folderId)
+        ? previous.filter((id) => id !== folderId)
+        : [...previous, folderId]
+    );
+  };
 
+  const handleCreateFolder = async () => {
+    const name = newFolderName.trim();
+
+    if (!name) return;
+
+    const created = await onCreateFolder(name);
+
+    if (created) {
+      setNewFolderName("");
+      setCreatingFolder(false);
+      setExpandedFolders((previous) => [...previous, created.id]);
+    }
+  };
+
+  const handleSaveFolderRename = async (folderId: number) => {
+    const name = editingFolderName.trim();
+
+    if (!name) return;
+
+    await onRenameFolder(folderId, name);
+
+    setEditingFolderId(null);
+    setEditingFolderName("");
+  };
+
+  const handleDeleteFolder = async (folderId: number) => {
+    const confirmed = window.confirm(
+      "Delete this folder? Its conversations will be moved to Unassigned."
+    );
+
+    if (!confirmed) return;
+
+    await onDeleteFolder(folderId);
+  };
+
+  const unassignedConversations = conversations.filter(
+    (conversation) => conversation.folder_id === null
+  );
 
 
 
@@ -951,6 +1031,292 @@ const handleRenameCancel = () => {
 
         <>
 
+                  {/* FOLDERS SECTION */}
+          <section className="space-y-3">
+
+            <div className="flex items-center justify-between px-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">
+                Folders
+              </span>
+
+              <button
+                type="button"
+                title="Create folder"
+                onClick={() => setCreatingFolder(true)}
+                className="rounded-md p-1.5 text-muted hover:bg-accent/10 hover:text-accent"
+              >
+                <FolderPlus size={15} />
+              </button>
+            </div>
+
+            {creatingFolder && (
+              <div className="flex items-center gap-1 px-1">
+                <input
+                  autoFocus
+                  value={newFolderName}
+                  onChange={(event) => setNewFolderName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") void handleCreateFolder();
+                    if (event.key === "Escape") {
+                      setCreatingFolder(false);
+                      setNewFolderName("");
+                    }
+                  }}
+                  placeholder="Folder name"
+                  className="min-w-0 flex-1 rounded-md border border-accent/50 bg-surface px-2 py-2 text-xs text-foreground outline-none"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => void handleCreateFolder()}
+                  disabled={!newFolderName.trim()}
+                  className="rounded-md p-1.5 text-green-600 disabled:opacity-40"
+                >
+                  <Check size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatingFolder(false);
+                    setNewFolderName("");
+                  }}
+                  className="rounded-md p-1.5 text-muted"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {folders.map((folder) => {
+              const folderConversations = conversations.filter(
+                (conversation) => conversation.folder_id === folder.id
+              );
+
+              const isExpanded = expandedFolders.includes(folder.id);
+
+              return (
+                <div key={folder.id} className="space-y-1">
+
+                  <div className="group flex items-center gap-1 rounded-lg px-1 hover:bg-surface-elevated">
+
+                    {editingFolderId === folder.id ? (
+                      <>
+                        <input
+                          autoFocus
+                          value={editingFolderName}
+                          onChange={(event) =>
+                            setEditingFolderName(event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              void handleSaveFolderRename(folder.id);
+                            }
+
+                            if (event.key === "Escape") {
+                              setEditingFolderId(null);
+                              setEditingFolderName("");
+                            }
+                          }}
+                          className="min-w-0 flex-1 rounded-md border border-accent/50 bg-surface px-2 py-2 text-xs outline-none"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveFolderRename(folder.id)}
+                          className="p-1 text-green-600"
+                        >
+                          <Check size={14} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => toggleFolder(folder.id)}
+                          className="flex min-w-0 flex-1 items-center gap-2 px-2 py-2 text-left text-xs text-muted hover:text-foreground"
+                        >
+                          <ChevronDown
+                            size={13}
+                            className={`shrink-0 transition-transform ${
+                              isExpanded ? "" : "-rotate-90"
+                            }`}
+                          />
+
+                          <Folder size={14} className="shrink-0 text-accent" />
+
+                          <span className="flex-1 truncate">
+                            {folder.name}
+                          </span>
+
+                          <span className="text-[10px]">
+                            {folderConversations.length}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          title="Rename folder"
+                          onClick={() => {
+                            setEditingFolderId(folder.id);
+                            setEditingFolderName(folder.name);
+                          }}
+                          className="rounded p-1 text-muted opacity-0 group-hover:opacity-100 hover:text-accent"
+                        >
+                          <Pencil size={12} />
+                        </button>
+
+                        <button
+                          type="button"
+                          title="Delete folder"
+                          onClick={() => void handleDeleteFolder(folder.id)}
+                          className="rounded p-1 text-muted opacity-0 group-hover:opacity-100 hover:text-red-500"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {isExpanded && (
+                    <div className="ml-5 space-y-1 border-l border-border pl-2">
+
+                      {folderConversations.map((conversation) => (
+                        <div
+                          key={conversation.id}
+                          className={`group flex items-center gap-1 rounded-md ${
+                            activeConversationId === conversation.id
+                              ? "bg-accent/10 text-accent"
+                              : "text-muted hover:bg-surface-elevated hover:text-foreground"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleSelect(conversation.id)}
+                            className="min-w-0 flex-1 truncate px-2 py-2 text-left text-xs"
+                          >
+                            {conversation.title}
+                          </button>
+
+                          <select
+                            aria-label={`Move ${conversation.title}`}
+                            title="Move conversation"
+                            value={folder.id}
+                            onChange={(event) =>
+                              void onMoveConversation(
+                                conversation.id,
+                                event.target.value === ""
+                                  ? null
+                                  : Number(event.target.value)
+                              )
+                            }
+                            className="w-7 cursor-pointer bg-transparent text-[10px] text-muted outline-none"
+                          >
+                            <option value={folder.id}>↔</option>
+                            <option value="">Unassigned</option>
+                            {folders
+                              .filter((item) => item.id !== folder.id)
+                              .map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      ))}
+
+                      {folderConversations.length === 0 && (
+                        <p className="px-2 py-2 text-[11px] text-muted">
+                          No conversations yet
+                        </p>
+                      )}
+
+                    </div>
+                  )}
+
+                </div>
+              );
+            })}
+
+            {/* UNASSIGNED CONVERSATIONS */}
+            <div className="space-y-1">
+
+              <button
+                type="button"
+                onClick={() => setShowUnassigned(!showUnassigned)}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs text-muted hover:bg-surface-elevated hover:text-foreground"
+              >
+                <ChevronDown
+                  size={13}
+                  className={`transition-transform ${
+                    showUnassigned ? "" : "-rotate-90"
+                  }`}
+                />
+
+                <Folder size={14} />
+
+                <span className="flex-1 text-left">Unassigned</span>
+
+                <span className="text-[10px]">
+                  {unassignedConversations.length}
+                </span>
+              </button>
+
+              {showUnassigned && (
+                <div className="ml-5 space-y-1 border-l border-border pl-2">
+
+                  {unassignedConversations.map((conversation) => (
+                    <div
+                      key={conversation.id}
+                      className={`group flex items-center gap-1 rounded-md ${
+                        activeConversationId === conversation.id
+                          ? "bg-accent/10 text-accent"
+                          : "text-muted hover:bg-surface-elevated hover:text-foreground"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleSelect(conversation.id)}
+                        className="min-w-0 flex-1 truncate px-2 py-2 text-left text-xs"
+                      >
+                        {conversation.title}
+                      </button>
+
+                      <select
+                        aria-label={`Move ${conversation.title}`}
+                        title="Move conversation"
+                        value=""
+                        onChange={(event) => {
+                          if (event.target.value) {
+                            void onMoveConversation(
+                              conversation.id,
+                              Number(event.target.value)
+                            );
+                          }
+                        }}
+                        className="w-7 cursor-pointer bg-transparent text-[10px] text-muted outline-none"
+                      >
+                        <option value="">↔</option>
+                        {folders.map((folder) => (
+                          <option key={folder.id} value={folder.id}>
+                            {folder.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+
+                  {unassignedConversations.length === 0 && (
+                    <p className="px-2 py-2 text-[11px] text-muted">
+                      No unassigned conversations
+                    </p>
+                  )}
+
+                </div>
+              )}
+            </div>
+          </section>
+          
           {/* PINNED SECTION */}
 
           <section>

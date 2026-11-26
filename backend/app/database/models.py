@@ -14,6 +14,37 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.connection import Base
 
 
+class Folder(Base):
+
+    __tablename__ = "folders"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+    conversations: Mapped[list["Conversation"]] = relationship(
+        back_populates="folder"
+    )
+
+
 class Conversation(Base):
 
     __tablename__ = "conversations"
@@ -37,6 +68,12 @@ class Conversation(Base):
         server_default="0"
     )
 
+    folder_id: Mapped[int | None] = mapped_column(
+        ForeignKey("folders.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -52,6 +89,10 @@ class Conversation(Base):
         back_populates="conversation",
         cascade="all, delete-orphan",
         order_by="Message.id"
+    )
+
+    folder: Mapped["Folder | None"] = relationship(
+        back_populates="conversations"
     )
 
 
@@ -95,9 +136,6 @@ class Message(Base):
         back_populates="messages"
     )
 
-
-# Temporary compatibility model.
-# We'll migrate existing chat_history data later.
 
 class ChatHistory(Base):
 

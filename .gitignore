@@ -1,17 +1,17 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
 # Python
 __pycache__/
 *.pyc
-
-# Virtual environments
-venv/
 .venv/
+venv/
 
-# Environment variables
-.env
+# Node
+node_modules/
+.next/
 
-# IDE
-.vscode/
-
-# Operating system
-.DS_Store
-Thumbs.db
+# Local database
+*.db

@@ -104,3 +104,38 @@ class ConversationRename(BaseModel):
 
 class ConversationPinUpdate(BaseModel):
     is_pinned: bool
+
+# ==========================================
+# FOLDER SCHEMAS
+# ==========================================
+
+class FolderCreate(BaseModel):
+
+    name: str = Field(
+        min_length=1,
+        max_length=100
+    )
+
+
+class FolderRename(BaseModel):
+
+    name: str = Field(
+        min_length=1,
+        max_length=100
+    )
+
+
+class FolderResponse(BaseModel):
+
+    id: int
+    name: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConversationMove(BaseModel):
+
+    conversation_id: int
+    folder_id: int | None = None

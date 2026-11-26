@@ -17,6 +17,8 @@ import {
   User,
   LoaderCircle,
   Trash2,
+  Download,
+  Printer,
 } from "lucide-react";
 
 import Sidebar from "./Sidebar";
@@ -285,6 +287,7 @@ export default function Workspace() {
   const [language, setLanguage] =
     useState<ProgrammingLanguage>("Python");
   const [searchTargetMessageId, setSearchTargetMessageId] = useState<number | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const [languageOpen, setLanguageOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -295,22 +298,31 @@ export default function Workspace() {
 
   const {
     conversations,
+    folders,
+
+    createFolder,
+    renameFolder,
+    deleteFolder,
+    moveConversation,
+
     searchQuery,
     setSearchQuery,
     searchLoading,
     searchError,
+
     activeConversationId,
     messages,
     loading,
     sending,
     error,
+
     openConversation,
     sendMessage,
     deleteConversation,
     renameConversation,
     togglePinConversation,
     resetChat,
-} = useChat();
+  } = useChat();
 
   // AUTO-SCROLL TO THE LATEST USER QUESTION
     useEffect(() => {
@@ -415,6 +427,12 @@ useEffect(() => {
 
   const isChatActive = activeConversationId !== null;
 
+  useEffect(() => {
+    const handleAfterPrint = () => setIsPrinting(false);
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, []);
+
   // --------------------------------------------------
   // HANDLERS
   // --------------------------------------------------
@@ -445,6 +463,73 @@ useEffect(() => {
     setSidebarOpen(false);
   };
 
+  // EXPORT THE CURRENT CONVERSATION AS MARKDOWN
+  const handleExportMarkdown = () => {
+    if (!activeConversationId || messages.length === 0 || loading || sending) {
+      return;
+    }
+
+    const activeConversation = conversations.find(
+      (conversation) => conversation.id === activeConversationId
+    );
+
+    const title =
+      activeConversation?.title?.trim() ||
+      `Conversation ${activeConversationId}`;
+
+    const exportedAt = new Date().toLocaleString();
+
+    const markdown = [
+      `# ${title}`,
+      "",
+      `> Exported from DevMind AI on ${exportedAt}`,
+      "",
+      "---",
+      "",
+      ...messages.flatMap((message) => [
+        `## ${message.role === "assistant" ? "DevMind AI" : "You"}`,
+        "",
+        `**Language:** ${message.language}`,
+        "",
+        message.content,
+        "",
+        "---",
+        "",
+      ]),
+    ].join("\n");
+
+    const safeFilename = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 60) || `conversation-${activeConversationId}`;
+
+    const blob = new Blob([markdown], {
+      type: "text/markdown;charset=utf-8",
+    });
+
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = `${safeFilename}.md`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+  };
+
+  // The browser print dialog provides the "Save as PDF" option.
+  const handleExportPdf = () => {
+    if (!activeConversationId || messages.length === 0 || loading || sending) {
+      return;
+    }
+
+    setIsPrinting(true);
+    window.setTimeout(() => window.print(), 300);
+  };
+
   const handleOpenConversation = async (
     id: number,
     messageId?: number | null
@@ -462,21 +547,28 @@ useEffect(() => {
   // SIDEBAR PROPS
 
   const sidebarProps = {
-    conversations,
-    activeConversationId,
+  conversations,
+  folders,
+  activeConversationId,
 
-    searchQuery,
-    onSearchChange: setSearchQuery,
-    searchLoading,
-    searchError,
+  searchQuery,
+  onSearchChange: setSearchQuery,
+  searchLoading,
+  searchError,
 
-    onNewConversation: handleNewConversation,
-    onSelectConversation: handleOpenConversation,
-    onDeleteConversation: deleteConversation,
-    onRenameConversation: renameConversation,
-    onTogglePinConversation: togglePinConversation,
-    onDeveloperTool: handleDeveloperTool,
-  };
+  onNewConversation: handleNewConversation,
+  onSelectConversation: handleOpenConversation,
+  onDeleteConversation: deleteConversation,
+  onRenameConversation: renameConversation,
+  onTogglePinConversation: togglePinConversation,
+
+  onCreateFolder: createFolder,
+  onRenameFolder: renameFolder,
+  onDeleteFolder: deleteFolder,
+  onMoveConversation: moveConversation,
+
+  onDeveloperTool: handleDeveloperTool,
+};
 
   // --------------------------------------------------
   // REUSABLE COMPOSER
@@ -584,6 +676,115 @@ useEffect(() => {
 
   return (
     <main className="relative flex h-screen w-full overflow-hidden bg-background">
+      <style>{`
+        .print-only { display: none; }
+
+        @page { size: auto; margin: 18mm; }
+
+        @media print {
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+          }
+          body * { visibility: hidden !important; }
+          .print-only, .print-only * { visibility: visible !important; }
+          .print-only {
+            display: block !important;
+            position: absolute !important;
+            inset: 0 auto auto 0 !important;
+            width: 100% !important;
+            padding: 0 !important;
+            color: #171717 !important;
+            background: #ffffff !important;
+            font-family: Arial, Helvetica, sans-serif !important;
+            font-size: 10pt !important;
+            line-height: 1.55 !important;
+          }
+          .print-only > h1 {
+            margin: 0 0 6pt !important;
+            color: #111111 !important;
+            font-size: 22pt !important;
+            font-weight: 700 !important;
+          }
+          .print-only .print-meta {
+            margin-bottom: 18pt !important;
+            color: #666666 !important;
+            font-size: 9pt !important;
+          }
+          .print-only .print-message {
+            display: flex !important;
+            gap: 10pt !important;
+            margin: 0 0 18pt !important;
+            padding: 0 0 14pt !important;
+            border-bottom: 1px solid #dddddd !important;
+            break-inside: auto;
+          }
+          .print-only .print-message > div:first-child { display: none !important; }
+          .print-only .print-message > div:last-child {
+            min-width: 0 !important;
+            color: #222222 !important;
+          }
+          .print-only .print-message span,
+          .print-only .print-message p,
+          .print-only .print-message li,
+          .print-only .print-message h1,
+          .print-only .print-message h2,
+          .print-only .print-message h3,
+          .print-only .print-message strong {
+            color: #222222 !important;
+          }
+          .print-only pre {
+            max-width: 100% !important;
+            overflow-wrap: anywhere !important;
+            white-space: pre-wrap !important;
+            border: 1px solid #dddddd !important;
+            border-radius: 5px !important;
+            background: #f5f5f5 !important;
+            color: #111111 !important;
+            padding: 10pt !important;
+            font-size: 8pt !important;
+          }
+          .print-only code {
+            color: #111111 !important;
+            font-family: Consolas, "Courier New", monospace !important;
+            overflow-wrap: anywhere !important;
+          }
+          .print-only table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 8pt !important;
+          }
+          .print-only th, .print-only td {
+            border: 1px solid #cccccc !important;
+            padding: 5pt !important;
+            color: #222222 !important;
+          }
+          .print-only a {
+            color: #174ea6 !important;
+            text-decoration: underline !important;
+          }
+        }
+      `}</style>
+
+      {isPrinting && (
+        <div className="print-only" aria-hidden="true">
+          <h1>
+            {conversations.find(
+              (conversation) => conversation.id === activeConversationId
+            )?.title?.trim() || `Conversation ${activeConversationId}`}
+          </h1>
+          <p className="print-meta">
+            Exported from DevMind AI on {new Date().toLocaleString()}
+          </p>
+          {messages.map((message) => (
+            <div key={message.id} className="print-message">
+              <ChatMessage message={message} />
+            </div>
+          ))}
+        </div>
+      )}
+
     {/* BACKGROUND */}
 
       <div className="pointer-events-none absolute inset-0 ambient-grid opacity-60" />
@@ -853,13 +1054,38 @@ useEffect(() => {
                     </p>
                   </div>
 
-                  <button
-                    onClick={handleNewConversation}
-                    className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
-                  >
-                    <Trash2 size={14} />
-                    New chat
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportMarkdown}
+                      disabled={messages.length === 0 || loading || sending}
+                      title="Export conversation as Markdown"
+                      className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:bg-surface-elevated hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Download size={14} />
+                      <span className="hidden sm:inline">Export .md</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportPdf}
+                      disabled={messages.length === 0 || loading || sending}
+                      title="Print or save conversation as PDF"
+                      className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:bg-surface-elevated hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Printer size={14} />
+                      <span className="hidden sm:inline">Export PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleNewConversation}
+                      className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
+                    >
+                      <Trash2 size={14} />
+                      New chat
+                    </button>
+                  </div>
                 </div>
 
                 <div
